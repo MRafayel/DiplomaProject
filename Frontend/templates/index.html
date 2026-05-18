@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlTag">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvestOptimize | Pro Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-muted: #64748b;
+            --border: #e2e8f0; --primary: #4f46e5; --primary-hover: #4338ca; --primary-light: #eef2ff;
+            --danger: #ef4444; --success: #10b981; --warning-bg: #fffbeb; --warning-text: #92400e;
+            --skeleton-base: #e2e8f0; --skeleton-shimmer: #f1f5f9; --radius: 16px;
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1); --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.dark {
+            --bg-body: #020617; --bg-card: #1e293b; --text-main: #f1f5f9; --text-muted: #94a3b8;
+            --border: #334155; --primary-light: #312e81; --warning-bg: #451a03; --warning-text: #fcd34d;
+            --skeleton-base: #334155; --skeleton-shimmer: #475569;
+        }
+
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px 60px 24px; }
+
+        /* Global Interactive States */
+        button, .radio-card, .stepper-btn, .theme-toggle { transition: var(--transition); cursor: pointer; }
+        button:hover:not(:disabled), .stepper-btn:hover, .theme-toggle:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        button:active:not(:disabled) { transform: translateY(0); }
+
+        .header-container { display: flex; justify-content: space-between; align-items: center; padding: 32px 0; }
+        h1 { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; }
+
+        .theme-toggle { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 10px 20px; border-radius: 99px; }
+
+        .config-panel { background: var(--bg-card); padding: 40px; border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border); margin-bottom: 48px; }
+        .config-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; align-items: start; }
+        @media (max-width: 850px) { .config-grid { grid-template-columns: 1fr; } }
+
+        h3 { margin-top: 0; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 20px; }
+
+        .upload-zone { position: relative; min-height: 320px; border: 2px dashed var(--border); border-radius: var(--radius); background: var(--bg-body); overflow: hidden; display: flex; flex-direction: column; }
+        .upload-zone.active-preview { border-style: solid; border-color: var(--primary); background: var(--bg-card); }
+        #drop-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 40px; text-align: center; }
+        #fileInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        #preview-state { display: none; flex-direction: column; height: 100%; animation: fadeIn 0.4s ease; }
+        .preview-header { padding: 12px 20px; background: var(--primary-light); color: var(--primary); display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; }
+        .preview-table-container { flex: 1; overflow: auto; max-height: 280px; }
+        table.preview-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        table.preview-table th { position: sticky; top: 0; background: var(--bg-body); padding: 12px; text-align: left; border-bottom: 2px solid var(--border); }
+        table.preview-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .btn-cancel { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; margin: 15px; width: fit-content; }
+
+        /* Stepper UI */
+        .form-group { margin-bottom: 24px; }
+        label { font-size: 0.875rem; font-weight: 700; display: block; margin-bottom: 12px; }
+        .stepper-container { display: flex; align-items: center; background: var(--bg-body); border: 1px solid var(--border); border-radius: 12px; padding: 6px; gap: 4px; }
+        .stepper-btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; width: 44px; height: 44px; font-size: 1.4rem; font-weight: 500; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+        .stepper-container input { flex: 1; border: none; background: transparent; text-align: center; font-size: 1.15rem; font-weight: 700; color: var(--text-main); outline: none; }
+
+        /* Remove Spinners */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        .radio-card-group { display: flex; gap: 12px; }
+        .radio-card { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 10px; text-align: center; }
+        .radio-card input { display: none; }
+        .radio-card:has(input:checked) { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: 700; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.3); margin-top: 10px; }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        /* Results */
+        .results-section { display: none; margin-top: 40px; }
+        .card { background: var(--bg-card); padding: 24px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-lg); margin-bottom: 24px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: var(--bg-card); padding: 24px; border-radius: var(--radius); border: 1px solid var(--border); text-align: center; }
+        .stat-card.highlight { border: 2px solid var(--success); background: var(--warning-bg); }
+        .stat-val { display: block; font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+        @media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        .results-table { width: 100%; border-collapse: collapse; }
+        .results-table th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; }
+        .results-table td { padding: 14px 12px; border-bottom: 1px solid var(--border); }
+        .best-row { background: var(--warning-bg) !important; font-weight: 700; color: var(--warning-text); }
+
+        #toast { position: fixed; bottom: 30px; right: 30px; padding: 16px 28px; border-radius: 12px; color: white; display: none; z-index: 100; font-weight: 600; }
+        .skeleton { background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-shimmer) 50%, var(--skeleton-base) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="header-container">
+        <h1>Invest<span style="color: var(--primary);">Optimize</span></h1>
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="theme-toggle" id="langToggle" onclick="toggleLanguage()">🌐 AM</button>
+            <button class="theme-toggle" onclick="toggleDarkMode()">🌙</button>
+        </div>
+    </div>
+
+    <div class="config-panel">
+        <form id="form">
+            <div class="config-grid">
+                <div>
+                    <h3 data-i18n="dataSelection">Data Selection</h3>
+                    <div id="uploadZone" class="upload-zone">
+                        <div id="drop-state">
+                            <input type="file" id="fileInput" name="file" accept=".csv, .xlsx, .xls" required>
+                            <svg style="width: 40px; height: 40px; color: var(--primary); margin-bottom: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            <p style="font-weight: 600; margin: 0;" data-i18n="uploadText">Click or drag data file</p>
+                        </div>
+                        <div id="preview-state">
+                            <div class="preview-header"><span id="fileNameDisplay"></span><span data-i18n="preview">Preview</span></div>
+                            <div class="preview-table-container"><table id="previewTable" class="preview-table"></table></div>
+                            <button type="button" class="btn-cancel" onclick="resetUpload()" data-i18n="changeFile">✕ Change File</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 data-i18n="parameters">Parameters</h3>
+                    <div class="form-group">
+                        <label data-i18n="totalBudget">Total Budget (mln)</label>
+                        <div class="stepper-container" data-step-val="20">
+                            <button type="button" class="stepper-btn" data-type="minus">−</button>
+                            <input type="number" name="budget" value="0" min="0" required>
+                            <button type="button" class="stepper-btn" data-type="plus">+</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label data-i18n="stepSize">Step Size (mln)</label>
+                        <div class="stepper-container" data-step-val="10">
+                            <button type="button" class="stepper-btn" data-type="minus">−</button>
+                            <input type="number" name="step" value="0" min="1" required>
+                            <button type="button" class="stepper-btn" data-type="plus">+</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label data-i18n="calcLogic">Calculation Logic</label>
+                        <div class="radio-card-group">
+                            <label class="radio-card"><input type="radio" name="mode" value="strict" checked><strong data-i18n="strict">Strict</strong></label>
+                            <label class="radio-card"><input type="radio" name="mode" value="flexible"><strong data-i18n="flexible">Flexible</strong></label>
+                        </div>
+                    </div>
+                    <button type="submit" id="submitBtn" class="btn-primary" data-i18n="optimizeBtn">Optimize Portfolio</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id="resultsSection" class="results-section">
+        <div id="skeletonState">
+            <div class="stat-grid"><div class="skeleton" style="height: 120px;"></div><div class="skeleton" style="height: 120px;"></div><div class="skeleton" style="height: 120px;"></div></div>
+            <div class="chart-grid"><div class="skeleton" style="height: 300px;"></div><div class="skeleton" style="height: 300px;"></div></div>
+        </div>
+
+        <div id="actualContent" style="display: none;">
+            <div class="stat-grid">
+                <div class="stat-card"><span style="color: var(--text-muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;" data-i18n="totalReturn">Total Return (mln)</span><span class="stat-val" id="totalBox">-</span></div>
+                <div class="stat-card"><span style="color: var(--text-muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;" data-i18n="remainBudget">Remaining Budget (mln)</span><span class="stat-val" id="remainBox">-</span></div>
+                <div class="stat-card" id="bestProjectCard"><span style="color: var(--text-muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;" data-i18n="recommended">Best 🏆</span><span class="stat-val" id="bestProjectName" style="font-size: 1.1rem;">-</span></div>
+            </div>
+
+            <div class="chart-grid">
+                <div class="card"><h3 data-i18n="budgetAlloc">Budget Allocation</h3><div class="chart-container"><canvas id="chart"></canvas></div></div>
+                <div class="card"><h3 data-i18n="roiLine">ROI Performance Line</h3><div class="chart-container"><canvas id="dpChart"></canvas></div></div>
+            </div>
+
+            <div class="card"><h3 data-i18n="allocTable">Allocation Table</h3><table class="results-table"><thead><tr><th data-i18n="project">Project</th><th data-i18n="investment">Investment (mln)</th><th data-i18n="roi">ROI (mln)</th></tr></thead><tbody id="resultsBody"></tbody></table></div>
+            <div class="card"><h3 data-i18n="strategicSummary">Strategic Summary</h3><div id="explanationBox" style="background: var(--primary-light); padding: 20px; border-radius: 12px; border-left: 4px solid var(--primary);"></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let chartInstance = null, dpInstance = null;
+let lastAllocationData = null; // Caches state to allow safe layout updates on language change
+
+// --- i18n TRANSLATION ENGINE ---
+let currentLang = 'en';
+const translations = {
+    en: {
+        dashboardTitle: "InvestOptimize | Pro Dashboard",
+        dataSelection: "Data Selection",
+        uploadText: "Click or drag data file",
+        preview: "Preview",
+        changeFile: "✕ Change File",
+        parameters: "Parameters",
+        totalBudget: "Total Budget (mln)",
+        stepSize: "Step Size (mln)",
+        calcLogic: "Calculation Logic",
+        strict: "Strict",
+        flexible: "Flexible",
+        optimizeBtn: "Optimize Portfolio",
+        analyzing: "Analyzing...",
+        totalReturn: "Total Return (mln)",
+        remainBudget: "Remaining Budget",
+        recommended: "Best 🏆",
+        budgetAlloc: "Budget Allocation",
+        roiLine: "ROI Performance Line",
+        allocTable: "Allocation Table",
+        project: "Project",
+        investment: "Investment (mln)",
+        roi: "ROI (mln)",
+        strategicSummary: "Strategic Summary",
+        optComplete: "Optimization Complete",
+        serverFailed: "Server Connection Failed",
+        chartLabel: "ROI Potential"
+    },
+    hy: {
+        dashboardTitle: "InvestOptimize | Pro Dashboard",
+        dataSelection: "Տվյալներ",
+        uploadText: "Կտտացրեք կամ քաշեք տվյալների ֆայլը",
+        preview: "Նախադիտում",
+        changeFile: "✕ Փոխել Ֆայլը",
+        parameters: "Պարամետրեր",
+        totalBudget: "Ընդհանուր Բյուջե (մլն)",
+        stepSize: "Քայլի Չափ (մլն)",
+        calcLogic: "Հաշվարկի Տրամաբանություն",
+        strict: "Խիստ",
+        flexible: "Ճկուն",
+        optimizeBtn: "Օպտիմալացնել Պորտֆելը",
+        analyzing: "Վերլուծություն...",
+        totalReturn: "Ընդհանուր Եկամտաբերություն (մլն)",
+        remainBudget: "Մնացորդային Բյուջե (մլն)",
+        recommended: "Ամենալավը 🏆",
+        budgetAlloc: "Բյուջեի Բաշխում",
+        roiLine: "ROI-ի Դինամիկա",
+        allocTable: "Բաշխման Աղյուսակ",
+        project: "Նախագիծ",
+        investment: "Ներդրում (մլն)",
+        roi: "ROI (մլն)",
+        strategicSummary: "Ռազմավարական Ամփոփում",
+        optComplete: "Օպտիմալացումն Ավարտվեց",
+        serverFailed: "Սերվերի Միացման Ձախողում",
+        chartLabel: "ROI-ի Պոտենցիալ"
+    }
+};
+
+function toggleLanguage() {
+    currentLang = currentLang === 'en' ? 'hy' : 'en';
+    document.getElementById('htmlTag').setAttribute('lang', currentLang);
+    document.title = translations[currentLang].dashboardTitle;
+    document.getElementById('langToggle').innerText = currentLang === 'en' ? '🌐 AM' : '🌐 EN';
+
+    // Scan DOM for i18n entries
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang][key]) {
+            el.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== "") {
+                    // Retain dynamic icons prefix where applicable
+                    if (key === 'changeFile') node.textContent = translations[currentLang][key];
+                    else node.textContent = translations[currentLang][key];
+                }
+            });
+            // Handle direct inline strong tags within radio structures safely
+            if (el.tagName === 'STRONG') {
+                el.innerText = translations[currentLang][key];
+            }
+        }
+    });
+
+    // Update operational active state buttons
+    const submitBtn = document.getElementById("submitBtn");
+    if (!submitBtn.disabled) {
+        submitBtn.innerText = translations[currentLang].optimizeBtn;
+    } else if (submitBtn.innerText !== "Optimize Portfolio" && submitBtn.innerText !== "Օպտիմալացնել Պորտֆելը") {
+        submitBtn.innerText = translations[currentLang].analyzing;
+    }
+
+    // Force runtime reactive reflow on chart instances if data exists
+    if (lastAllocationData) {
+        renderCharts(lastAllocationData);
+    }
+}
+
+// --- UTILS ---
+const showToast = (msgKey, type="success") => {
+    const t = document.getElementById("toast");
+    t.style.background = type === "success" ? "var(--success)" : "var(--danger)";
+    t.innerText = translations[currentLang][msgKey] || msgKey;
+    t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 3000);
+};
+
+const generateColors = (count) => Array.from({ length: count }, (_, i) => `hsl(${(i * 360) / count}, 70%, 60%)`);
+function toggleDarkMode() { document.body.classList.toggle("dark"); }
+
+// --- STATE MANAGEMENT ---
+const clearResults = () => {
+    document.getElementById("resultsSection").style.display = "none";
+    document.getElementById("actualContent").style.display = "none";
+    lastAllocationData = null;
+    if (chartInstance) chartInstance.destroy();
+    if (dpInstance) dpInstance.destroy();
+};
+
+// --- STEPPER LOGIC ---
+document.querySelectorAll('.stepper-container').forEach(container => {
+    const input = container.querySelector('input');
+    const stepAmount = parseInt(container.dataset.stepVal) || 1;
+
+    container.addEventListener('click', (e) => {
+        const btn = e.target.closest('.stepper-btn');
+        if (!btn) return;
+        let val = parseInt(input.value) || 0;
+        input.value = btn.dataset.type === 'plus' ? val + stepAmount : Math.max(0, val - stepAmount);
+    });
+});
+
+// --- FILE HANDLING ---
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    clearResults();
+    document.getElementById('fileNameDisplay').innerText = file.name;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+        renderPreview(json);
+        document.getElementById('drop-state').style.display = 'none';
+        document.getElementById('preview-state').style.display = 'flex';
+        document.getElementById('uploadZone').classList.add('active-preview');
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+function renderPreview(data) {
+    const table = document.getElementById('previewTable');
+    table.innerHTML = data.slice(0, 11).map((row, i) => `
+        <tr>${row.map(cell => i === 0 ? `<th>${cell ?? ''}</th>` : `<td>${cell ?? ''}</td>`).join('')}</tr>
+    `).join('');
+}
+
+function resetUpload() {
+    document.getElementById('fileInput').value = "";
+    document.getElementById('drop-state').style.display = 'flex';
+    document.getElementById('preview-state').style.display = 'none';
+    document.getElementById('uploadZone').classList.remove('active-preview');
+    clearResults();
+}
+
+// --- CORE OPTIMIZATION LOGIC ---
+document.getElementById("form").onsubmit = async (e) => {
+    e.preventDefault();
+    const resultsSection = document.getElementById("resultsSection");
+    const skeleton = document.getElementById("skeletonState");
+    const content = document.getElementById("actualContent");
+    const submitBtn = document.getElementById("submitBtn");
+
+    resultsSection.style.display = "block";
+    skeleton.style.display = "block";
+    content.style.display = "none";
+    submitBtn.disabled = true;
+    submitBtn.innerText = translations[currentLang].analyzing;
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+        const formData = new FormData(e.target);
+        const res = await fetch("/optimize", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (data.error) {
+            showToast(data.message, "error");
+            resultsSection.style.display = "none";
+        } else {
+            lastAllocationData = data.allocation; // Store dataset safely
+
+            // Update Stats
+            document.getElementById("totalBox").innerText = data.total_return.toLocaleString();
+            document.getElementById("remainBox").innerText = data.remaining_budget.toLocaleString();
+
+            // Update Table & Find Best (Senior-Optimized Block)
+            const tbody = document.getElementById("resultsBody");
+            let bestName = "", maxRet = -1;
+            const labels = Object.keys(data.allocation);
+
+            // Step 1: Find the absolute best project first
+            labels.forEach(p => {
+                if (data.allocation[p].expected_return > maxRet) {
+                    maxRet = data.allocation[p].expected_return;
+                    bestName = p;
+                }
+            });
+
+            // Step 2: Build the HTML strings using the finalized bestName
+            let tableRows = "";
+            labels.forEach(p => {
+                const r = data.allocation[p];
+                tableRows += `
+                    <tr class="${p === bestName ? 'best-row' : ''}">
+                        <td>${p} ${p === bestName ? '🏆' : ''}</td>
+                        <td>${r.investment.toLocaleString()}</td>
+                        <td>${r.expected_return.toLocaleString()}</td>
+                    </tr>`;
+            });
+
+            // Step 3: Write to DOM once for better performance
+            tbody.innerHTML = tableRows;
+
+            document.getElementById("bestProjectName").innerText = bestName;
+            document.getElementById("bestProjectCard").className = "stat-card highlight";
+            document.getElementById("explanationBox").innerText = data.explanation;
+
+            renderCharts(data.allocation);
+            skeleton.style.display = "none";
+            content.style.display = "block";
+            showToast("optComplete");
+        }
+    } catch (err) {
+        showToast("serverFailed", "error");
+        resultsSection.style.display = "none";
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = translations[currentLang].optimizeBtn;
+    }
+};
+
+function renderCharts(allocation) {
+    const labels = Object.keys(allocation);
+    const invData = labels.map(p => allocation[p].investment);
+    const retData = labels.map(p => allocation[p].expected_return);
+    const dynamicColors = generateColors(labels.length);
+
+    if (chartInstance) chartInstance.destroy();
+    if (dpInstance) dpInstance.destroy();
+
+    chartInstance = new Chart(document.getElementById("chart"), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: invData, backgroundColor: dynamicColors, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    dpInstance = new Chart(document.getElementById("dpChart"), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{ label: translations[currentLang].chartLabel, data: retData, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+</script>
+</body>
+</html>
