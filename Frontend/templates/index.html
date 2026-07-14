@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InvestOptimize | Pro Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +51,10 @@
         .upload-zone.active-preview { border-style: solid; border-color: var(--primary); background: var(--bg-card); }
         #drop-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 40px; text-align: center; }
         #fileInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .upload-divider { position: relative; z-index: 1; display: flex; align-items: center; width: min(260px, 100%); gap: 12px; margin: 22px 0 14px; color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .upload-divider::before, .upload-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+        .btn-test-data { position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--bg-card); color: var(--primary); border: 1px solid var(--primary); padding: 10px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; }
+        .btn-test-data:disabled { opacity: 0.65; cursor: wait; }
         #preview-state { display: none; flex-direction: column; height: 100%; animation: fadeIn 0.4s ease; }
         .preview-header { padding: 12px 20px; background: var(--primary-light); color: var(--primary); display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; }
         .preview-table-container { flex: 1; overflow: auto; max-height: 280px; }
@@ -74,8 +79,11 @@
         .radio-card input { display: none; }
         .radio-card:has(input:checked) { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
 
-        .btn-primary { background: var(--primary); color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: 700; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.3); margin-top: 10px; }
+        .btn-primary { display: block; background: var(--primary); color: white; border: none; padding: 13px 16px; width: 78%; border-radius: 18px; font-weight: 700; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.3); margin: 10px auto 0; }
         .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+        .btn-primary.nudge-optimize { position: relative; isolation: isolate; overflow: hidden; background: transparent; border: 2px solid transparent; padding: 11px 14px; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), 0 6px 20px rgba(79, 70, 229, 0.35); }
+        .btn-primary.nudge-optimize::before { content: ""; position: absolute; z-index: -2; inset: -350%; background: conic-gradient(from 0deg, transparent 0 38%, #c7d2fe 45%, #ffffff 50%, #818cf8 55%, transparent 62% 100%); animation: optimizeEdgeSpin 1.8s linear infinite; }
+        .btn-primary.nudge-optimize::after { content: ""; position: absolute; z-index: -1; inset: 2px; border-radius: 14px; background: var(--primary); }
 
         /* Results */
         .results-section { display: none; margin-top: 40px; }
@@ -98,6 +106,8 @@
         .skeleton { background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-shimmer) 50%, var(--skeleton-base) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes optimizeEdgeSpin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .btn-primary.nudge-optimize::before { animation: none; background: #a5b4fc; } }
     </style>
 </head>
 
@@ -113,7 +123,7 @@
     </div>
 
     <div class="config-panel">
-        <form id="form">
+        <form id="form" autocomplete="off">
             <div class="config-grid">
                 <div>
                     <h3 data-i18n="dataSelection">Data Selection</h3>
@@ -122,6 +132,8 @@
                             <input type="file" id="fileInput" name="file" accept=".csv, .xlsx, .xls" required>
                             <svg style="width: 40px; height: 40px; color: var(--primary); margin-bottom: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                             <p style="font-weight: 600; margin: 0;" data-i18n="uploadText">Click or drag data file</p>
+                            <div class="upload-divider" data-i18n="or">or</div>
+                            <button type="button" id="testDataBtn" class="btn-test-data" data-test-url="{{ url_for('static', filename='Test Data.xlsx') }}" data-i18n="useTestData">Use test data</button>
                         </div>
                         <div id="preview-state">
                             <div class="preview-header"><span id="fileNameDisplay"></span><span data-i18n="preview">Preview</span></div>
@@ -201,6 +213,10 @@ const translations = {
         dashboardTitle: "InvestOptimize | Pro Dashboard",
         dataSelection: "Data Selection",
         uploadText: "Click or drag data file",
+        or: "or",
+        useTestData: "Use test data",
+        loadingTestData: "Loading test data...",
+        testDataFailed: "Could not load the test data",
         preview: "Preview",
         changeFile: "✕ Change File",
         parameters: "Parameters",
@@ -229,6 +245,10 @@ const translations = {
         dashboardTitle: "InvestOptimize | Pro Dashboard",
         dataSelection: "Տվյալներ",
         uploadText: "Կտտացրեք կամ քաշեք տվյալների ֆայլը",
+        or: "կամ",
+        useTestData: "Օգտագործել թեստային տվյալները",
+        loadingTestData: "Թեստային տվյալները բեռնվում են...",
+        testDataFailed: "Չհաջողվեց բեռնել թեստային տվյալները",
         preview: "Նախադիտում",
         changeFile: "✕ Փոխել Ֆայլը",
         parameters: "Պարամետրեր",
@@ -281,11 +301,15 @@ function toggleLanguage() {
 
     // Update operational active state buttons
     const submitBtn = document.getElementById("submitBtn");
+    const testDataBtn = document.getElementById("testDataBtn");
     if (!submitBtn.disabled) {
         submitBtn.innerText = translations[currentLang].optimizeBtn;
     } else if (submitBtn.innerText !== "Optimize Portfolio" && submitBtn.innerText !== "Օպտիմալացնել Պորտֆելը") {
         submitBtn.innerText = translations[currentLang].analyzing;
     }
+    testDataBtn.innerText = testDataBtn.disabled
+        ? translations[currentLang].loadingTestData
+        : translations[currentLang].useTestData;
 
     // Force runtime reactive reflow on chart instances if data exists
     if (lastAllocationData) {
@@ -331,6 +355,7 @@ document.querySelectorAll('.stepper-container').forEach(container => {
 document.getElementById('fileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
+    document.getElementById('submitBtn').classList.remove('nudge-optimize');
     clearResults();
     document.getElementById('fileNameDisplay').innerText = file.name;
     const reader = new FileReader();
@@ -346,6 +371,42 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     reader.readAsArrayBuffer(file);
 });
 
+document.getElementById('testDataBtn').addEventListener('click', loadTestData);
+
+async function loadTestData(e) {
+    e.stopPropagation();
+    const button = e.currentTarget;
+    const fileInput = document.getElementById('fileInput');
+
+    button.disabled = true;
+    button.innerText = translations[currentLang].loadingTestData;
+
+    try {
+        const response = await fetch(button.dataset.testUrl);
+        if (!response.ok) throw new Error(`Test data request failed: ${response.status}`);
+
+        const blob = await response.blob();
+        const testFile = new File([blob], 'Test Data.xlsx', {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const transfer = new DataTransfer();
+        transfer.items.add(testFile);
+        fileInput.files = transfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        document.querySelector('input[name="budget"]').value = 160;
+        document.querySelector('input[name="step"]').value = 20;
+        document.querySelector('input[name="mode"][value="strict"]').checked = true;
+        document.getElementById('submitBtn').classList.add('nudge-optimize');
+    } catch (error) {
+        console.error(error);
+        showToast('testDataFailed', 'error');
+    } finally {
+        button.disabled = false;
+        button.innerText = translations[currentLang].useTestData;
+    }
+}
+
 function renderPreview(data) {
     const table = document.getElementById('previewTable');
     table.innerHTML = data.slice(0, 11).map((row, i) => `
@@ -355,11 +416,21 @@ function renderPreview(data) {
 
 function resetUpload() {
     document.getElementById('fileInput').value = "";
+    document.getElementById('submitBtn').classList.remove('nudge-optimize');
     document.getElementById('drop-state').style.display = 'flex';
     document.getElementById('preview-state').style.display = 'none';
     document.getElementById('uploadZone').classList.remove('active-preview');
     clearResults();
 }
+
+// Browsers may restore form values during reloads. Always begin a fresh page
+// with the default inputs while preserving autofill after "Use test data".
+window.addEventListener('pageshow', () => {
+    document.getElementById('form').reset();
+    document.querySelector('input[name="budget"]').value = 0;
+    document.querySelector('input[name="step"]').value = 0;
+    resetUpload();
+});
 
 // --- CORE OPTIMIZATION LOGIC ---
 document.getElementById("form").onsubmit = async (e) => {
@@ -368,6 +439,7 @@ document.getElementById("form").onsubmit = async (e) => {
     const skeleton = document.getElementById("skeletonState");
     const content = document.getElementById("actualContent");
     const submitBtn = document.getElementById("submitBtn");
+    submitBtn.classList.remove('nudge-optimize');
 
     resultsSection.style.display = "block";
     skeleton.style.display = "block";
